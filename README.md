@@ -24,7 +24,7 @@ python -m venv venv
 #Windows:
 venv\Scripts\activate
 #Linux/Mac:
-source venv/bin/activate
+source venv/Scripts/activate
 
 #4. Установить зависимости
 pip install -r requirements.txt
