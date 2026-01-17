@@ -1,4 +1,3 @@
-# Главный файл приложения
 from fastapi import FastAPI, HTTPException
 from typing import List, Dict, Any
 from datetime import datetime
@@ -7,10 +6,9 @@ app = FastAPI(
     title="ToDo лист API",
     description="API для управления задачами с использованием матрицы Эйзенхауэра",
     version="1.0.0",
-    contact = {"name": "София"}
+    contact={"name": "София"}
 )
 
-# Временное хранилище (позже будет заменено на PostgreSQL)
 tasks_db: List[Dict[str, Any]] = [
     {
         "id": 1,
@@ -64,31 +62,24 @@ async def welcome() -> dict:
         "contact": app.contact
     }
 
-@app.get("/tasks") 
-async def get_all_tasks() -> dict: 
-    return { 
-        "count": len(tasks_db),  # считает количество записей в хранилище 
-        "tasks": tasks_db # выводит всё, что есть в хранилище 
+@app.get("/tasks")
+async def get_all_tasks() -> dict:
+    return {
+        "count": len(tasks_db),
+        "tasks": tasks_db
     }
 
-# 2) Endpoint для получения статистики по задачам (ДОЛЖЕН БЫТЬ ПЕРЕД /tasks/{task_id})
 @app.get("/tasks/stats")
 async def get_tasks_stats() -> dict:
-    """Получить статистику по всем задачам"""
     total_tasks = len(tasks_db)
-    
-    # Статистика по квадрантам
     by_quadrant = {"Q1": 0, "Q2": 0, "Q3": 0, "Q4": 0}
-    # Статистика по статусу выполнения
     by_status = {"completed": 0, "pending": 0}
     
     for task in tasks_db:
-        # Считаем задачи по квадрантам
         quadrant = task.get("quadrant")
         if quadrant in by_quadrant:
             by_quadrant[quadrant] += 1
         
-        # Считаем задачи по статусу
         if task.get("completed"):
             by_status["completed"] += 1
         else:
@@ -100,12 +91,8 @@ async def get_tasks_stats() -> dict:
         "by_status": by_status
     }
 
-# 4) Endpoint для поиска задач по ключевому слову (ДОЛЖЕН БЫТЬ ПЕРЕД /tasks/{task_id})
 @app.get("/tasks/search")
 async def search_tasks(q: str) -> dict:
-    """Поиск задач по ключевому слову в названии или описании"""
-    
-    # Проверка минимальной длины запроса
     if len(q) < 2:
         raise HTTPException(
             status_code=400,
@@ -116,15 +103,12 @@ async def search_tasks(q: str) -> dict:
     found_tasks = []
     
     for task in tasks_db:
-        # Проверяем название
         title = task.get("title", "").lower()
-        # Проверяем описание (может быть None)
         description = task.get("description", "").lower() if task.get("description") else ""
         
         if q_lower in title or q_lower in description:
             found_tasks.append(task)
     
-    # Проверка, найдены ли задачи
     if not found_tasks:
         raise HTTPException(
             status_code=404,
@@ -137,29 +121,22 @@ async def search_tasks(q: str) -> dict:
         "tasks": found_tasks
     }
 
-# 3) Endpoint для фильтрации задач по статусу выполнения
 @app.get("/tasks/status/{status}")
 async def get_tasks_by_status(status: str) -> dict:
-    """Получить задачи по статусу выполнения"""
-    
-    # Проверка валидности статуса
     if status not in ["completed", "pending"]:
         raise HTTPException(
             status_code=400,
             detail="Неверный статус. Используйте: 'completed' или 'pending'"
         )
     
-    # Преобразуем статус в булево значение
     target_completed = (status == "completed")
     
-    # Фильтрация задач
     filtered_tasks = [
         task
         for task in tasks_db
         if task.get("completed") == target_completed
     ]
     
-    # Проверка, найдены ли задачи
     if not filtered_tasks:
         raise HTTPException(
             status_code=404,
@@ -172,44 +149,38 @@ async def get_tasks_by_status(status: str) -> dict:
         "tasks": filtered_tasks
     }
 
-@app.get("/tasks/quadrant/{quadrant}") 
-async def get_tasks_by_quadrant(quadrant: str) -> dict: 
-    if quadrant not in ["Q1", "Q2", "Q3", "Q4"]: 
+@app.get("/tasks/quadrant/{quadrant}")
+async def get_tasks_by_quadrant(quadrant: str) -> dict:
+    if quadrant not in ["Q1", "Q2", "Q3", "Q4"]:
         raise HTTPException(
-            status_code=400, 
-            detail="Неверный квадрант. Используйте: Q1, Q2, Q3, Q4" 
-        ) 
+            status_code=400,
+            detail="Неверный квадрант. Используйте: Q1, Q2, Q3, Q4"
+        )
     
-    filtered_tasks = [ 
-        task 
-        for task in tasks_db 
-        if task.get("quadrant") == quadrant 
+    filtered_tasks = [
+        task
+        for task in tasks_db
+        if task.get("quadrant") == quadrant
     ]
     
-    # Проверка, найдены ли задачи
     if not filtered_tasks:
         raise HTTPException(
             status_code=404,
             detail=f"Задачи в квадранте '{quadrant}' не найдены"
         )
     
-    return { 
-        "quadrant": quadrant, 
-        "count": len(filtered_tasks), 
-        "tasks": filtered_tasks 
+    return {
+        "quadrant": quadrant,
+        "count": len(filtered_tasks),
+        "tasks": filtered_tasks
     }
 
-# 1) Endpoint для получения задачи по ID (ДОЛЖЕН БЫТЬ ПОСЛЕ ВСЕХ КОНКРЕТНЫХ ПУТЕЙ)
 @app.get("/tasks/{task_id}")
 async def get_task_by_id(task_id: int) -> dict:
-    """Получить задачу по ID"""
-    
-    # Ищем задачу по ID
     for task in tasks_db:
         if task.get("id") == task_id:
             return task
     
-    # Если задача не найдена
     raise HTTPException(
         status_code=404,
         detail=f"Задача с ID {task_id} не найдена"
