@@ -1,12 +1,12 @@
 from fastapi import APIRouter
-from .tasks import tasks_db
+from database import tasks_db  # ← Импортируем из database.py
 
 router = APIRouter(
-    prefix="/tasks",
+    prefix="/stats",  # ← Измените префикс на /stats
     tags=["stats"]
 )
 
-@router.get("/stats")
+@router.get("/")  # ← Уберите "/stats", оставьте просто "/"
 async def get_tasks_stats() -> dict:
     total_tasks = len(tasks_db)
     
