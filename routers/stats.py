@@ -1,4 +1,3 @@
-# routers/stats.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -12,11 +11,9 @@ router = APIRouter(
 
 @router.get("/")
 async def get_tasks_stats(db: AsyncSession = Depends(get_db)) -> dict:
-    # Общее количество задач
     total_result = await db.execute(select(func.count(Task.id)))
     total_tasks = total_result.scalar() or 0
     
-    # Статистика по квадрантам
     quadrant_result = await db.execute(
         select(Task.quadrant, func.count(Task.id))
         .group_by(Task.quadrant)
@@ -27,7 +24,6 @@ async def get_tasks_stats(db: AsyncSession = Depends(get_db)) -> dict:
         if quadrant in by_quadrant:
             by_quadrant[quadrant] = count
     
-    # Статистика по статусам
     completed_result = await db.execute(
         select(func.count(Task.id))
         .where(Task.completed == True)

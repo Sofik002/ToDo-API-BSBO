@@ -40,6 +40,11 @@ uvicorn main:app --reload
 - Установить, запомнив пароль для пользователя `postgres`
 - Служба запустится автоматически
 
+## Настройка переменных окружения
+### Создайте файл .env в корне проекта:
+```bash
+DATABASE_URL=postgresql+asyncpg://postgres:ваш_пароль@localhost:5432/todo_db
+```
 ## Создание базы данных и таблицы
 
 ### Подключись к PostgreSQL и выполни:
@@ -76,6 +81,9 @@ INSERT INTO tasks (title, description, is_important, is_urgent, quadrant, comple
 ('Посмотреть сериал', 'Новый сезон любимого сериала', FALSE, FALSE, 'Q4', TRUE);
 ```
 ## Доступ к API
-- **Документация Swagger UI:** -  http://localhost:8000/docs
-- **Все задачи:** - http://localhost:8000/api/v1/tasks
-- **Статистика по квадрантам** - http://localhost:8000/api/v1/stats
+- **Корневой ендпоинт** - http://127.0.0.1:8000/
+- **Документация Swagger UI:** -  http://127.0.0.1:8000/docs
+- **Все задачи:** - http://127.0.0.1:8000/api/v1/tasks/
+- **Статистика по квадрантам** - http://127.0.0.1:8000/api/v1/stats
+- **Получить задачи в квадранте Q1** - http://127.0.0.1:8000/api/v1/tasks/quadrant/Q1
+- **Поиск задач** - http://127.0.0.1:8000/api/v1/tasks/search?q=отчет
