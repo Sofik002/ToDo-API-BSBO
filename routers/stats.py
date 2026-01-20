@@ -1,27 +1,45 @@
-from fastapi import APIRouter
-from database import tasks_db  # ← Импортируем из database.py
+# routers/stats.py
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from database import get_db
+from models.task import Task
 
 router = APIRouter(
-    prefix="/stats",  # ← Измените префикс на /stats
+    prefix="/stats",
     tags=["stats"]
 )
 
-@router.get("/")  # ← Уберите "/stats", оставьте просто "/"
-async def get_tasks_stats() -> dict:
-    total_tasks = len(tasks_db)
+@router.get("/")
+async def get_tasks_stats(db: AsyncSession = Depends(get_db)) -> dict:
+    # Общее количество задач
+    total_result = await db.execute(select(func.count(Task.id)))
+    total_tasks = total_result.scalar() or 0
+    
+    # Статистика по квадрантам
+    quadrant_result = await db.execute(
+        select(Task.quadrant, func.count(Task.id))
+        .group_by(Task.quadrant)
+    )
     
     by_quadrant = {"Q1": 0, "Q2": 0, "Q3": 0, "Q4": 0}
-    by_status = {"completed": 0, "pending": 0}
-    
-    for task in tasks_db:
-        quadrant = task.get("quadrant")
+    for quadrant, count in quadrant_result.all():
         if quadrant in by_quadrant:
-            by_quadrant[quadrant] += 1
-        
-        if task.get("completed"):
-            by_status["completed"] += 1
-        else:
-            by_status["pending"] += 1
+            by_quadrant[quadrant] = count
+    
+    # Статистика по статусам
+    completed_result = await db.execute(
+        select(func.count(Task.id))
+        .where(Task.completed == True)
+    )
+    completed_count = completed_result.scalar() or 0
+    
+    pending_count = total_tasks - completed_count
+    
+    by_status = {
+        "completed": completed_count,
+        "pending": pending_count
+    }
     
     return {
         "total_tasks": total_tasks,
