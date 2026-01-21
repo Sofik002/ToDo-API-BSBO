@@ -1,20 +1,4 @@
-# Переменные окружения (DB)
 
-Приложение читает строку подключения из `DATABASE_URL`.
-
-Если у тебя файл с переменными окружения лежит не как стандартный `.env` (например, у тебя есть “enc/env файл” в другом месте), укажи путь к нему через `ENV_FILE`:
-
-```powershell
-$env:ENV_FILE = "D:\path\to\your.env"
-$env:DATABASE_URL = ""  # опционально, если уже лежит в файле
-.\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
-```
-
-Формат файла — обычный dotenv:
-
-```text
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/todo_db
-```
 # ToDo лист API
 
 **API для управления задачами с использованием матрицы Эйзенхауэра.**
