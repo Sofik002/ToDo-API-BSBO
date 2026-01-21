@@ -1,89 +1,108 @@
+# crud.py
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, update, delete
 from models.task import Task
 from schemas import TaskCreate, TaskUpdate
+from utils import calculate_urgency, determine_quadrant
 from datetime import datetime
+from typing import Optional, List
 
 class TaskCRUD:
-    
+
     @staticmethod
-    async def get_all(db: AsyncSession, skip: int = 0, limit: int = 100):
-        result = await db.execute(select(Task).offset(skip).limit(limit))
-        return result.scalars().all()
-    
-    @staticmethod
-    async def get_by_id(db: AsyncSession, task_id: int):
-        result = await db.execute(select(Task).where(Task.id == task_id))
-        return result.scalar_one_or_none()
-    
-    @staticmethod
-    async def create(db: AsyncSession, task: TaskCreate):
-        if task.is_important and task.is_urgent:
-            quadrant = "Q1"
-        elif task.is_important and not task.is_urgent:
-            quadrant = "Q2"
-        elif not task.is_important and task.is_urgent:
-            quadrant = "Q3"
-        else:
-            quadrant = "Q4"
+    async def create(db: AsyncSession, task_create: TaskCreate) -> Task:
+        deadline = task_create.deadline_at
+        if deadline:
+            deadline = deadline.replace(tzinfo=None)
+
+        is_urgent = calculate_urgency(deadline)
+        
+        # Вычисляем квадрант как строку
+        quadrant_str = determine_quadrant(task_create.is_important, is_urgent)
+        # НЕ конвертируем в число!
         
         db_task = Task(
-            title=task.title,
-            description=task.description,
-            is_important=task.is_important,
-            is_urgent=task.is_urgent,
-            quadrant=quadrant,
+            title=task_create.title,
+            description=task_create.description,
+            is_important=task_create.is_important,
+            deadline_at=deadline,
+            quadrant=quadrant_str,  # Сохраняем как строку "Q1"
             completed=False
         )
-        
         db.add(db_task)
         await db.commit()
         await db.refresh(db_task)
         return db_task
-    
+
     @staticmethod
-    async def update(db: AsyncSession, task_id: int, task_update: TaskUpdate):
-        db_task = await TaskCRUD.get_by_id(db, task_id)
-        if not db_task:
+    async def update(db: AsyncSession, task_id: int, task_update: TaskUpdate) -> Optional[Task]:
+        task = await db.get(Task, task_id)
+        if not task:
             return None
-        
-        update_data = task_update.model_dump(exclude_unset=True, exclude={"id"})
-        
+
+        # Применяем все переданные поля
+        update_data = task_update.dict(exclude_unset=True, exclude={"quadrant"})
         for field, value in update_data.items():
-            setattr(db_task, field, value)
-        
-        if "is_important" in update_data or "is_urgent" in update_data:
-            if db_task.is_important and db_task.is_urgent:
-                db_task.quadrant = "Q1"
-            elif db_task.is_important and not db_task.is_urgent:
-                db_task.quadrant = "Q2"
-            elif not db_task.is_important and db_task.is_urgent:
-                db_task.quadrant = "Q3"
-            else:
-                db_task.quadrant = "Q4"
+            setattr(task, field, value)
+
+        # Пересчитываем urgent и quadrant после обновления
+        is_urgent = calculate_urgency(task.deadline_at)
+        task.quadrant = determine_quadrant(task.is_important, is_urgent)
+
+        db.add(task)
+        await db.commit()
+        await db.refresh(task)
+        return task
+
+    @staticmethod
+    async def complete(db: AsyncSession, task_id: int) -> Optional[Task]:
+        task = await db.get(Task, task_id)
+        if not task:
+            return None
+        task.completed = True
+        task.completed_at = datetime.utcnow()
+
+        # Пересчитываем квадрант (как строку!)
+        is_urgent = calculate_urgency(task.deadline_at)
+        quadrant_str = determine_quadrant(task.is_important, is_urgent)
+        task.quadrant = quadrant_str  # Сохраняем строку
         
         await db.commit()
-        await db.refresh(db_task)
-        return db_task
-    
+        await db.refresh(task)
+        return task
+
     @staticmethod
-    async def delete(db: AsyncSession, task_id: int):
-        db_task = await TaskCRUD.get_by_id(db, task_id)
-        if db_task:
-            await db.delete(db_task)
-            await db.commit()
-        return db_task
-    
+    async def delete(db: AsyncSession, task_id: int) -> Optional[Task]:
+        task = await db.get(Task, task_id)
+        if not task:
+            return None
+        await db.delete(task)
+        await db.commit()
+        return task
+
     @staticmethod
-    async def complete(db: AsyncSession, task_id: int):
-        db_task = await TaskCRUD.get_by_id(db, task_id)
-        if db_task:
-            db_task.completed = True
-            db_task.completed_at = datetime.now()
-            await db.commit()
-            await db.refresh(db_task)
-        return db_task
-    
+    async def get_all(db: AsyncSession) -> List[Task]:
+        result = await db.execute(select(Task))
+        return result.scalars().all()
+
+    @staticmethod
+    async def get_by_id(db: AsyncSession, task_id: int) -> Optional[Task]:
+        return await db.get(Task, task_id)
+
+    @staticmethod
+    async def get_by_status(db: AsyncSession, completed: bool) -> List[Task]:
+        result = await db.execute(select(Task).where(Task.completed == completed))
+        return result.scalars().all()
+
+    @staticmethod
+    async def get_by_quadrant(db: AsyncSession, quadrant: str) -> list:
+        """Получить задачи по квадранту Q1..Q4"""
+        result = await db.execute(
+            select(Task).where(Task.quadrant == quadrant)  # строка, не число!
+        )
+        tasks = result.scalars().all()
+        return tasks
+
     @staticmethod
     async def search(db: AsyncSession, query: str):
         if len(query) < 2:
@@ -94,19 +113,5 @@ class TaskCRUD:
                 Task.title.ilike(f"%{query}%") | 
                 Task.description.ilike(f"%{query}%")
             )
-        )
-        return result.scalars().all()
-    
-    @staticmethod
-    async def get_by_status(db: AsyncSession, completed: bool):
-        result = await db.execute(
-            select(Task).where(Task.completed == completed)
-        )
-        return result.scalars().all()
-    
-    @staticmethod
-    async def get_by_quadrant(db: AsyncSession, quadrant: str):
-        result = await db.execute(
-            select(Task).where(Task.quadrant == quadrant)
         )
         return result.scalars().all()
