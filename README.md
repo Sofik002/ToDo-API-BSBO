@@ -93,6 +93,10 @@ INSERT INTO tasks (title, description, is_important, is_urgent, quadrant, comple
 ('Сходить на лекцию', NULL, FALSE, TRUE, 'Q3', FALSE),
 ('Посмотреть сериал', 'Новый сезон любимого сериала', FALSE, FALSE, 'Q4', TRUE);
 ```
+### В командной строке VS code выполни
+```bash
+python recreate_tables.py
+```
 ## Назначение роли админа
 Чтобы это сделать необходимо запустить в консоли файл make_admin.py и ввести id пользователя, которого необходимо назначить админом.
 ## Аутентификация и роли
