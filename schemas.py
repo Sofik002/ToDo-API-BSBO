@@ -1,3 +1,4 @@
+# schemas.py
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
@@ -31,6 +32,7 @@ class TaskResponse(BaseModel):
     days_until_deadline: Optional[int] = None
     is_urgent: bool = False
     overdue: bool = False
+    user_id: Optional[int] = None  # Добавляем user_id
 
     class Config:
         from_attributes = True
